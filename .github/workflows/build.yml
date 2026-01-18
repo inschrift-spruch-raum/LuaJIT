@@ -1,0 +1,84 @@
+name: Build LuaJIT
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    # 1. 把所有步骤的shell设置为powershell 7
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. MSVC编译环境
+    - name: Setup MSVC environment
+      uses: ilammy/msvc-dev-cmd@v1
+
+    # 3. 在src目录下执行 `msvcbuild.bat`
+    - name: Build LuaJIT
+      working-directory: ./src
+      run: ./msvcbuild.bat
+
+    # 准备产物目录结构
+    - name: Prepare Artifacts Directory
+      run: |
+        # 创建根目录 LuaJIT
+        New-Item -ItemType Directory -Force -Path "LuaJIT"
+        New-Item -ItemType Directory -Force -Path "LuaJIT/lua"
+        
+        # 4. 产物根目录叫 LuaJIT
+        # 5. 复制产物到根目录
+        Copy-Item "src/luajit.exe" -Destination "LuaJIT/"
+        Copy-Item "src/lua51.dll" -Destination "LuaJIT/"
+        
+        # 将 src/jit 放在 lua/jit 下
+        Copy-Item "src/jit" -Destination "LuaJIT/lua/jit/" -Recurse
+        Get-Location
+        ls
+
+    # 6. 产物打包为 7z
+    - name: Install 7-Zip
+      run: choco install 7zip -y
+
+    - name: Package 7z
+      run: 7z a LuaJIT-Win64.7z ./LuaJIT/*
+
+    # 6.1 产物打包为 MSI (使用外部 LuaJITProduct.wxs 文件)
+    - name: Install WiX Toolset
+      run: choco install wixtoolset -y
+
+    - name: Create MSI Installer
+      run: |
+        $sourceDir = "./LuaJIT"  # 明确指定相对路径
+        $wxsHeatFile = "LuaJITFiles.wxs"
+        $msiFile = "LuaJIT-Setup.msi"
+
+        # 1. 使用 Heat 工具从目录生成文件组件
+        # -gg: 生成 GUID
+        # -dr: 指定目录引用为 INSTALLDIR (与 LuaJITProduct.wxs 中的定义一致)
+        # -cg: 指定组件组名 (与 LuaJITProduct.wxs 中的引用一致)
+        & heat.exe dir $sourceDir -gg -sfrag -sreg -srd -cg LuaJITComponents -dr INSTALLDIR -var var.SourceDir -out $wxsHeatFile
+
+        # 2. 编译时定义 SourceDir 变量为绝对路径
+        & candle.exe -dSourceDir="$PWD/LuaJIT" $wxsHeatFile ./src/LuaJIT.wxs -ext WixUIExtension
+
+        # 3. 链接生成 MSI
+        & light.exe -ext WixUIExtension -out $msiFile LuaJITFiles.wixobj LuaJIT.wixobj
+
+    # 上传产物
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: LuaJIT-Package
+        path: |
+          LuaJIT-Win64.7z
+          LuaJIT-Setup.msi
