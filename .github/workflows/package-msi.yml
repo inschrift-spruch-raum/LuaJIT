@@ -1,0 +1,38 @@
+name: Package as MSI
+
+on:
+  workflow_call:
+
+jobs:
+  package-msi:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout repository (for WiX files)
+        uses: actions/checkout@v4
+
+      - name: Download LuaJIT directory
+        uses: actions/download-artifact@v4
+        with:
+          name: LuaJIT-Directory
+          path: ./LuaJIT/
+
+      - name: Install WiX Toolset
+        run: choco install wixtoolset -y
+
+      - name: Create MSI Installer
+        shell: pwsh
+        run: |
+          & heat.exe dir "./LuaJIT" -gg -sfrag -sreg -srd -cg LuaJITComponents -dr INSTALLDIR -var var.SourceDir -out "LuaJITFiles.wxs"
+          
+          & candle.exe -dSourceDir="$PWD/LuaJIT" "LuaJITFiles.wxs" "./src/LuaJIT.wxs" -ext WixUIExtension
+          
+          & light.exe -ext WixUIExtension -out "LuaJIT-Setup.msi" "LuaJITFiles.wixobj" "LuaJIT.wixobj"
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuaJIT-MSI
+          path: LuaJIT-Setup.msi

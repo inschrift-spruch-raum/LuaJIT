@@ -1,0 +1,29 @@
+name: Package as 7z
+
+on:
+  workflow_call:
+
+jobs:
+  package-zip:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Download LuaJIT directory
+        uses: actions/download-artifact@v4
+        with:
+          name: LuaJIT-Directory
+          path: ./LuaJIT/
+
+      - name: Install 7-Zip
+        run: choco install 7zip -y
+
+      - name: Create 7z package
+        run: 7z a LuaJIT-Win64.7z ./LuaJIT/*
+
+      - name: Upload 7z artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuaJIT-7Zip
+          path: LuaJIT-Win64.7z

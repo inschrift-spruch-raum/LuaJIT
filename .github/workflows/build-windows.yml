@@ -1,0 +1,37 @@
+name: Build LuaJIT
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build LuaJIT
+        working-directory: ./src
+        run: ./msvcbuild.bat
+
+      - name: Prepare LuaJIT Directory Structure
+        run: |
+          New-Item -ItemType Directory -Force -Path "LuaJIT/lua"
+          
+          Copy-Item "src/luajit.exe" -Destination "LuaJIT/" -Force
+          Copy-Item "src/lua51.dll" -Destination "LuaJIT/" -Force
+          
+          Copy-Item "src/jit" -Destination "LuaJIT/lua/jit/" -Recurse -Force
+
+      - name: Upload prepared directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuaJIT-Directory
+          path: LuaJIT/
+          retention-days: 7
