@@ -25,9 +25,9 @@ jobs:
       - name: Create MSI Installer
         shell: pwsh
         run: |
-          & heat.exe dir "./LuaJIT" -gg -sfrag -sreg -srd -cg LuaJITComponents -dr INSTALLDIR -var var.SourceDir -out "LuaJITFiles.wxs"
+          & heat.exe dir "./LuaJIT" -gg -sfrag -sreg -srd -cg LuaJITComponents -dr INSTALLDIR -var var.SourceDir -out "LuaJITFiles.wxs" -arch x64
           
-          & candle.exe -dSourceDir="$PWD/LuaJIT" "LuaJITFiles.wxs" "./src/LuaJIT.wxs" -ext WixUIExtension
+          & candle.exe -arch x64 -dSourceDir="$PWD/LuaJIT" "LuaJITFiles.wxs" "./src/LuaJIT.wxs" -ext WixUIExtension
           
           & light.exe -ext WixUIExtension -out "LuaJIT-Setup.msi" "LuaJITFiles.wixobj" "LuaJIT.wixobj"
 
